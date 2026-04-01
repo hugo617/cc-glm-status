@@ -1,0 +1,29 @@
+{
+  "name": "cc-glm-status",
+  "version": "1.0.0",
+  "description": "Real-time status line for Claude Code + GLM Coding Plan (Z.ai) — shows token quota, reset countdown, MCP usage, and context window",
+  "type": "module",
+  "main": "src/index.mjs",
+  "bin": {
+    "cc-glm-status": "bin/cc-glm-status.mjs"
+  },
+  "scripts": {
+    "start": "node src/index.mjs",
+    "test": "node test/test.mjs",
+    "test:watch": "node --watch test/test.mjs"
+  },
+  "keywords": [
+    "claude-code",
+    "glm",
+    "zhipu",
+    "z-ai",
+    "status-line",
+    "quota",
+    "coding-plan",
+    "cli"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
