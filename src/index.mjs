@@ -3,11 +3,12 @@
 // Zero-dependency ESM script using Node 18+ native fetch
 
 import { readFileSync, mkdirSync, writeFileSync, renameSync } from 'node:fs';
+import { homedir } from 'node:os';
 
 // ── Constants ────────────────────────────────────────────────────────
 
 const API_URL = 'https://api.z.ai/api/monitor/usage/quota/limit';
-const CACHE_DIR = `${process.env.HOME}/.claude/cache`;
+const CACHE_DIR = `${homedir()}/.claude/cache`;
 const CACHE_PATH = `${CACHE_DIR}/glm-status-cache.json`;
 const CACHE_MAX_AGE_MS = 120_000;
 const CACHE_ERROR_AGE_MS = 30_000;

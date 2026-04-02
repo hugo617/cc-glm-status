@@ -13,17 +13,24 @@ import {
 } from '../src/index.mjs';
 
 import { readFileSync, unlinkSync } from 'node:fs';
+import { homedir } from 'node:os';
 
 let passed = 0;
 let failed = 0;
 
-function assert(condition, name) {
+function assert(condition, name, actual, expected) {
   if (condition) {
     passed++;
     console.log(`  \x1b[32m✓\x1b[0m ${name}`);
   } else {
     failed++;
     console.log(`  \x1b[31m✗\x1b[0m ${name}`);
+    if (actual !== undefined) {
+      console.log(`    \x1b[31m  got:      ${JSON.stringify(actual)}\x1b[0m`);
+    }
+    if (expected !== undefined) {
+      console.log(`    \x1b[31m  expected: ${JSON.stringify(expected)}\x1b[0m`);
+    }
   }
 }
 
@@ -164,7 +171,7 @@ const cached = readCache();
 assert(cached?.test === true, 'writes and reads cache');
 
 // Clean up test cache
-try { unlinkSync(`${process.env.HOME}/.claude/cache/glm-status-cache.json`); } catch {}
+try { unlinkSync(`${homedir()}/.claude/cache/glm-status-cache.json`); } catch {}
 
 // ── Summary ──────────────────────────────────────────────────────────
 
