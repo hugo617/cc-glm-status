@@ -12,8 +12,9 @@ import {
   readCache,
 } from '../src/index.mjs';
 
-import { readFileSync, unlinkSync } from 'node:fs';
+import { readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 let passed = 0;
 let failed = 0;
@@ -171,7 +172,116 @@ const cached = readCache();
 assert(cached?.test === true, 'writes and reads cache');
 
 // Clean up test cache
-try { unlinkSync(`${homedir()}/.claude/cache/glm-status-cache.json`); } catch {}
+try { unlinkSync(join(homedir(), '.claude', 'cache', 'glm-status-cache.json')); } catch {}
+
+// ── writeCache return value ──────────────────────────────────────────
+
+console.log('\nwriteCache return value:');
+
+const writeResult = writeCache({ test: 'return' }, false);
+assert(writeResult === true, 'writeCache returns true on success');
+
+// Clean up
+try { unlinkSync(join(homedir(), '.claude', 'cache', 'glm-status-cache.json')); } catch {}
+
+// ── Cache expiry ────────────────────────────────────────────────────
+
+console.log('\nCache expiry:');
+
+// Write a cache entry with a manipulated timestamp to test expiry
+const cachePath = join(homedir(), '.claude', 'cache', 'glm-status-cache.json');
+
+// Normal cache: 120s — write entry 121s old, should be expired
+writeFileSync(cachePath, JSON.stringify({
+  data: { expired: true },
+  timestamp: Date.now() - 121_000,
+  isError: false,
+}));
+assert(readCache() === null, 'normal cache expires after 120s');
+
+// Error cache: 30s — write entry 31s old, should be expired
+writeFileSync(cachePath, JSON.stringify({
+  data: { expired: true },
+  timestamp: Date.now() - 31_000,
+  isError: true,
+}));
+assert(readCache() === null, 'error cache expires after 30s');
+
+// Error cache: 30s — write entry 25s old, should still be valid
+writeFileSync(cachePath, JSON.stringify({
+  data: { stillValid: true },
+  timestamp: Date.now() - 25_000,
+  isError: true,
+}));
+assert(readCache()?.stillValid === true, 'error cache valid within 30s');
+
+// Clean up
+try { unlinkSync(cachePath); } catch {}
+
+// ── parseStdin validation ────────────────────────────────────────────
+
+console.log('\nparseStdin validation:');
+
+assert(
+  parseStdin('{"model":{"display_name":""}}').modelName === 'Unknown',
+  'empty string model name returns Unknown'
+);
+
+assert(
+  parseStdin('{"model":{"display_name":null}}').modelName === 'Unknown',
+  'null model name returns Unknown'
+);
+
+assert(
+  parseStdin('{"model":{"display_name":123}}').modelName === 'Unknown',
+  'numeric model name returns Unknown'
+);
+
+assert(
+  parseStdin('{"context_window":{"used_percentage":"42"}}').contextUsed === null,
+  'string context percentage returns null'
+);
+
+assert(
+  parseStdin('{"context_window":{"used_percentage":-5}}').contextUsed === null,
+  'negative context percentage returns null'
+);
+
+assert(
+  parseStdin('{"context_window":{"used_percentage":Infinity}}').contextUsed === null,
+  'Infinity context percentage returns null'
+);
+
+// ── parseQuotaData edge cases ────────────────────────────────────────
+
+console.log('\nparseQuotaData edge cases:');
+
+const emptyLimits = parseQuotaData({ level: 'pro', limits: [] });
+assert(emptyLimits.level === 'pro', 'handles empty limits array');
+assert(emptyLimits.tokenLimit === null, 'no token limit with empty limits');
+assert(emptyLimits.timeLimit === null, 'no time limit with empty limits');
+
+const unknownLimitType = parseQuotaData({ limits: [{ type: 'UNKNOWN_TYPE', percentage: 50 }] });
+assert(unknownLimitType.tokenLimit === null, 'ignores unknown limit types');
+assert(unknownLimitType.timeLimit === null, 'ignores unknown limit types');
+
+// ── formatBar edge cases ────────────────────────────────────────────
+
+console.log('\nformatBar edge cases:');
+
+assert(formatBar(0) === '\u2591'.repeat(10), '0% is all empty (recheck)');
+assert(formatBar(100) === '\u2588'.repeat(10), '100% is all filled (recheck)');
+assert(formatBar(-5) === '\u2591'.repeat(10), 'negative percentage gives all empty');
+assert(formatBar(150) === '\u2588'.repeat(10), 'over 100% gives all filled');
+
+// ── colorByPercentage edge cases ────────────────────────────────────
+
+console.log('\ncolorByPercentage edge cases:');
+
+assert(colorByPercentage(0) === '\x1b[32m', '0% returns green');
+assert(colorByPercentage(49) === '\x1b[32m', '49% returns green');
+assert(colorByPercentage(79) === '\x1b[33m', '79% returns yellow');
+assert(colorByPercentage(80) === '\x1b[31m', '80% returns red');
 
 // ── Summary ──────────────────────────────────────────────────────────
 

@@ -4,12 +4,13 @@
 
 import { readFileSync, mkdirSync, writeFileSync, renameSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 // ── Constants ────────────────────────────────────────────────────────
 
 const API_URL = 'https://api.z.ai/api/monitor/usage/quota/limit';
-const CACHE_DIR = `${homedir()}/.claude/cache`;
-const CACHE_PATH = `${CACHE_DIR}/glm-status-cache.json`;
+const CACHE_DIR = join(homedir(), '.claude', 'cache');
+const CACHE_PATH = join(CACHE_DIR, 'glm-status-cache.json');
 const CACHE_MAX_AGE_MS = 120_000;
 const CACHE_ERROR_AGE_MS = 30_000;
 const API_TIMEOUT_MS = 5_000;
@@ -62,8 +63,9 @@ export function writeCache(data, isError = false) {
     const content = JSON.stringify({ data, timestamp: Date.now(), isError });
     writeFileSync(tmp, content, 'utf8');
     renameSync(tmp, CACHE_PATH);
+    return true;
   } catch {
-    // Silently ignore cache write failures
+    return false;
   }
 }
 
@@ -76,7 +78,15 @@ export async function fetchQuotaData(token) {
   });
 
   if (!res.ok) {
-    throw new Error(`API returned ${res.status}`);
+    const hints = {
+      401: '认证失败，请检查 API Key 是否正确',
+      403: '访问被拒绝，当前套餐可能不支持此接口',
+      429: '请求频率过高，请稍后再试',
+      500: 'Z.ai 服务器错误，请稍后再试',
+      502: 'Z.ai 服务器错误，请稍后再试',
+      503: 'Z.ai 服务暂不可用，请稍后再试',
+    };
+    throw new Error(hints[res.status] || `API 返回 HTTP ${res.status}`);
   }
 
   const json = await res.json();
@@ -125,9 +135,11 @@ export function parseQuotaData(data) {
 export function parseStdin(input) {
   try {
     const data = JSON.parse(input);
+    const rawName = data.model?.display_name || data.model?.id;
+    const rawCtx = data.context_window?.used_percentage;
     return {
-      modelName: data.model?.display_name || data.model?.id || 'Unknown',
-      contextUsed: data.context_window?.used_percentage ?? null,
+      modelName: typeof rawName === 'string' && rawName.length > 0 ? rawName : 'Unknown',
+      contextUsed: typeof rawCtx === 'number' && isFinite(rawCtx) && rawCtx >= 0 ? rawCtx : null,
     };
   } catch {
     return { modelName: 'Unknown', contextUsed: null };
@@ -143,7 +155,8 @@ export function colorByPercentage(pct) {
 }
 
 export function formatBar(pct, width = 10) {
-  const filled = Math.round((pct / 100) * width);
+  const clamped = Math.max(0, Math.min(100, pct));
+  const filled = Math.round((clamped / 100) * width);
   const empty = width - filled;
   return '\u2588'.repeat(filled) + '\u2591'.repeat(empty);
 }
@@ -215,6 +228,9 @@ export function renderStatusLine(stdinData, quotaData) {
 // ── Main ─────────────────────────────────────────────────────────────
 
 async function main() {
+  const debug = process.env.CC_GLM_DEBUG === '1';
+  const dbg = debug ? (msg) => process.stderr.write(`[cc-glm-status] ${msg}\n`) : () => {};
+
   // Read stdin (with 1s timeout for Claude Code piped input)
   let input = '';
   await new Promise((resolve) => {
@@ -238,14 +254,23 @@ async function main() {
   // Try cache first
   let quotaData = readCache();
 
-  if (!quotaData) {
+  if (quotaData) {
+    dbg('cache hit');
+  } else {
+    dbg('cache miss');
     const token = getApiKey();
-    if (token) {
+    if (!token) {
+      dbg('未找到 API Key，请设置 ZAI_API_KEY / ZHIPU_API_KEY / ANTHROPIC_AUTH_TOKEN');
+    } else {
       try {
+        dbg(`正在调用 API: ${API_URL}`);
         const rawData = await fetchQuotaData(token);
         quotaData = parseQuotaData(rawData);
-        writeCache(quotaData, false);
-      } catch {
+        const ok = writeCache(quotaData, false);
+        if (!ok) dbg('缓存写入失败');
+        dbg('API 调用成功');
+      } catch (err) {
+        dbg(`API 错误: ${err.message}`);
         // On error, try stale cache as fallback
         try {
           const raw = readFileSync(CACHE_PATH, 'utf8');
@@ -254,7 +279,8 @@ async function main() {
         } catch {
           quotaData = null;
         }
-        writeCache(quotaData, true);
+        const ok = writeCache(quotaData, true);
+        if (!ok) dbg('错误状态缓存写入失败');
       }
     }
   }

@@ -19,7 +19,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm start              # 运行主程序
 npm test               # 运行测试
 npm run test:watch     # 监听模式运行测试
+npm pack --dry-run     # 验证打包内容
 ```
+
+## 发布
+
+`package.json` 的 `files` 字段白名单仅发布 `bin/`、`src/`、`README.md`、`LICENSE`。`prepublishOnly` 钩子确保测试通过后才能发布。
+
+## CLI 选项
+
+- `--help` / `-h`：显示中文帮助
+- `--version` / `-v`：显示版本号
+- `--debug`：输出诊断信息到 stderr（也可通过 `CC_GLM_DEBUG=1` 环境变量启用）
 
 ## 架构概览
 

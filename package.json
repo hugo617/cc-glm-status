@@ -7,10 +7,12 @@
   "bin": {
     "cc-glm-status": "bin/cc-glm-status.mjs"
   },
+  "files": ["bin/", "src/", "README.md", "LICENSE"],
   "scripts": {
     "start": "node src/index.mjs",
     "test": "node test/test.mjs",
-    "test:watch": "node --watch test/test.mjs"
+    "test:watch": "node --watch test/test.mjs",
+    "prepublishOnly": "npm test"
   },
   "keywords": [
     "claude-code",
