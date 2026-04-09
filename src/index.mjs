@@ -15,6 +15,12 @@ const CACHE_MAX_AGE_MS = 120_000;
 const CACHE_ERROR_AGE_MS = 30_000;
 const API_TIMEOUT_MS = 5_000;
 
+const CONTEXT_SIZES = Object.freeze({
+  'claude-': 200_000,
+  'glm-': 200_000,
+});
+const DEFAULT_CONTEXT_SIZE = 200_000;
+
 // ── ANSI Colors ──────────────────────────────────────────────────────
 
 const C = Object.freeze({
@@ -161,6 +167,20 @@ export function formatBar(pct, width = 10) {
   return '\u2588'.repeat(filled) + '\u2591'.repeat(empty);
 }
 
+export function formatTokens(count) {
+  if (count >= 999_500) return `${(count / 1_000_000).toFixed(1)}M`;
+  if (count >= 1_000) return `${Math.round(count / 1_000)}k`;
+  return String(count);
+}
+
+export function inferContextSize(modelName) {
+  const key = modelName.toLowerCase();
+  for (const [pattern, size] of Object.entries(CONTEXT_SIZES)) {
+    if (key.includes(pattern)) return size;
+  }
+  return DEFAULT_CONTEXT_SIZE;
+}
+
 export function formatCountdown(timestampMs) {
   if (!timestampMs) return null;
   const diffMs = Math.max(0, timestampMs - Date.now());
@@ -196,6 +216,8 @@ export function renderStatusLine(stdinData, quotaData) {
     parts.push(`${C.dim}Tokens ${color}${bar} ${label}${timeStr}${C.reset}`);
   } else if (quotaData) {
     parts.push(`${C.dim}Tokens ---${C.reset}`);
+  } else {
+    parts.push(`${C.dim}Quota ---${C.reset}`);
   }
 
   // MCP usage
@@ -210,16 +232,11 @@ export function renderStatusLine(stdinData, quotaData) {
   // Context window
   if (stdinData.contextUsed !== null) {
     const pct = Math.round(stdinData.contextUsed);
-    parts.push(`${C.dim}Ctx ${pct}%${C.reset}`);
-  }
-
-  // Quota unavailable fallback
-  if (!quotaData) {
-    const ctxPart =
-      stdinData.contextUsed !== null
-        ? ` | ${C.dim}Ctx ${Math.round(stdinData.contextUsed)}%${C.reset}`
-        : '';
-    return `${C.cyan}${stdinData.modelName}${C.reset}${SEP}${C.dim}Quota ---${C.reset}${ctxPart}`;
+    const color = colorByPercentage(pct);
+    const total = inferContextSize(stdinData.modelName);
+    const used = Math.round(pct / 100 * total);
+    const tokenStr = `${formatTokens(used)}/${formatTokens(total)}`;
+    parts.push(`${C.dim}Ctx ${color}${pct}% ${tokenStr}${C.reset}`);
   }
 
   return parts.join(SEP);

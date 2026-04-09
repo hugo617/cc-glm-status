@@ -7,6 +7,8 @@ import {
   colorByPercentage,
   formatBar,
   formatCountdown,
+  formatTokens,
+  inferContextSize,
   renderStatusLine,
   writeCache,
   readCache,
@@ -138,6 +140,33 @@ assert(formatCountdown(Date.now() + 2700000) === '45m', 'formats minutes only');
 assert(formatCountdown(Date.now() + 30000) === '<1m', 'formats <1 minute');
 assert(formatCountdown(Date.now() - 1000) === '<1m', 'handles past timestamps');
 
+// ── formatTokens ─────────────────────────────────────────────────────
+
+console.log('\nformatTokens:');
+
+assert(formatTokens(0) === '0', 'formats 0');
+assert(formatTokens(500) === '500', 'formats small numbers as-is');
+assert(formatTokens(999) === '999', 'formats <1000 as-is');
+assert(formatTokens(1_000) === '1k', 'formats 1000 as 1k');
+assert(formatTokens(70_000) === '70k', 'formats 70k');
+assert(formatTokens(200_000) === '200k', 'formats 200k');
+assert(formatTokens(999_499) === '999k', 'formats 999499 as 999k');
+assert(formatTokens(999_500) === '1.0M', 'formats 999500 as 1.0M (boundary)');
+assert(formatTokens(999_999) === '1.0M', 'formats 999999 as 1.0M');
+assert(formatTokens(1_000_000) === '1.0M', 'formats 1M');
+assert(formatTokens(1_500_000) === '1.5M', 'formats 1.5M');
+
+// ── inferContextSize ─────────────────────────────────────────────────
+
+console.log('\ninferContextSize:');
+
+assert(inferContextSize('GLM-5-Turbo') === 200_000, 'matches GLM models');
+assert(inferContextSize('claude-sonnet-4-6') === 200_000, 'matches Claude models');
+assert(inferContextSize('glm-5.1') === 200_000, 'case-insensitive GLM match');
+assert(inferContextSize('my-claude-wrapper') === 200_000, 'matches substring with hyphen pattern');
+assert(inferContextSize('Unknown') === 200_000, 'returns default for unknown models');
+assert(inferContextSize('') === 200_000, 'returns default for empty string');
+
 // ── renderStatusLine ─────────────────────────────────────────────────
 
 console.log('\nrenderStatusLine:');
@@ -150,11 +179,21 @@ assert(output.includes('GLM-5-Turbo'), 'includes model name');
 assert(output.includes('Tokens'), 'includes token section');
 assert(output.includes('22%'), 'includes token percentage');
 assert(output.includes('MCP'), 'includes MCP section');
-assert(output.includes('Ctx 35%'), 'includes context');
+assert(output.includes('Ctx ') && output.includes('35%'), 'includes context');
+assert(output.includes('70k/200k'), 'includes token count in context');
 
 const outputFallback = renderStatusLine({ modelName: 'GLM-5-Turbo', contextUsed: 35 }, null);
 assert(outputFallback.includes('Quota ---'), 'shows fallback when no quota data');
-assert(outputFallback.includes('Ctx 35%'), 'shows context in fallback');
+assert(outputFallback.includes('Ctx ') && outputFallback.includes('35%'), 'shows context in fallback');
+assert(outputFallback.includes('70k/200k'), 'includes token count in fallback');
+
+const outputHighCtx = renderStatusLine(
+  { modelName: 'GLM-5-Turbo', contextUsed: 85 },
+  { ...quotaFull }
+);
+assert(outputHighCtx.includes('Ctx ') && outputHighCtx.includes('85%'), 'includes high context percentage');
+assert(outputHighCtx.includes('170k/200k'), 'includes high token count');
+assert(outputHighCtx.includes('\x1b[31m'), 'high context shows red color');
 
 const outputReset = renderStatusLine(
   { modelName: 'GLM-5-Turbo', contextUsed: 50 },
