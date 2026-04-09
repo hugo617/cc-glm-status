@@ -26,6 +26,32 @@ npm pack --dry-run     # 验证打包内容
 
 `package.json` 的 `files` 字段白名单仅发布 `bin/`、`src/`、`README.md`、`LICENSE`。`prepublishOnly` 钩子确保测试通过后才能发布。
 
+### 发布流程
+
+```bash
+# 1. 确保测试通过
+npm test
+
+# 2. 升版本号（手动修改 package.json 中的 version）
+#    patch 修复 → x.y.z+1
+#    minor 功能 → x.y+1.0
+
+# 3. 验证打包内容
+npm pack --dry-run
+
+# 4. 提交版本号变更并推送到 GitHub
+git add package.json
+git commit -m "chore: bump version to <version>"
+git push
+
+# 5. 发布到 npm（prepublishOnly 自动跑测试）
+npm publish
+```
+
+### 同步状态行脚本
+
+Claude Code 实际运行的是 `~/.claude/statusline/glm-status.mjs`，修改 `src/index.mjs` 后需要同步更新该文件。两份代码逻辑一致，区别仅在于旧副本无 `export`、无 `debug` 模式。
+
 ## CLI 选项
 
 - `--help` / `-h`：显示中文帮助
