@@ -105,7 +105,17 @@ echo '{}' | cc-glm-status --debug
 - 看到 `未找到 API Key` → 环境变量未设置，检查第 1 步
 - 看到 `认证失败` → API Key 无效，重新复制正确的 Key
 - 看到 `Z.ai 服务器错误` → Z.ai 暂时故障，稍后重试
-- 有数据但仍显示 `---` → 清除缓存：`rm ~/.claude/cache/glm-status-cache.json`
+- 有数据但仍显示 `---` → 清除缓存：
+
+  macOS / Linux：
+  ```bash
+  rm ~/.claude/cache/glm-status-cache.json
+  ```
+
+  Windows（cmd 或 PowerShell）：
+  ```cmd
+  del %USERPROFILE%\.claude\cache\glm-status-cache.json
+  ```
 
 ### Node.js 版本太旧
 

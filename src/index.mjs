@@ -2,7 +2,7 @@
 // cc-glm-status — Real-time status line for Claude Code + GLM Coding Plan
 // Zero-dependency ESM script using Node 18+ native fetch
 
-import { readFileSync, mkdirSync, writeFileSync, renameSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync, renameSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -68,6 +68,7 @@ export function writeCache(data, isError = false) {
     const tmp = `${CACHE_PATH}.${Date.now()}.tmp`;
     const content = JSON.stringify({ data, timestamp: Date.now(), isError });
     writeFileSync(tmp, content, 'utf8');
+    try { unlinkSync(CACHE_PATH); } catch {} // Windows: remove existing file before rename
     renameSync(tmp, CACHE_PATH);
     return true;
   } catch {

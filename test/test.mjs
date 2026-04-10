@@ -220,6 +220,11 @@ console.log('\nwriteCache return value:');
 const writeResult = writeCache({ test: 'return' }, false);
 assert(writeResult === true, 'writeCache returns true on success');
 
+const overwriteResult = writeCache({ overwritten: true }, false);
+assert(overwriteResult === true, 'writeCache overwrites existing file');
+const overwritten = readCache();
+assert(overwritten?.overwritten === true, 'overwritten cache has correct data');
+
 // Clean up
 try { unlinkSync(join(homedir(), '.claude', 'cache', 'glm-status-cache.json')); } catch {}
 

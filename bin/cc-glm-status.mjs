@@ -44,7 +44,7 @@ if (args.includes('--help') || args.includes('-h')) {
 缓存:
   路径: ~/.claude/cache/glm-status-cache.json
   有效期: 120秒（正常）/ 30秒（错误）
-  清除: rm ~/.claude/cache/glm-status-cache.json`);
+  清除: ${process.platform === 'win32' ? 'del %USERPROFILE%\\.claude\\cache\\glm-status-cache.json' : 'rm ~/.claude/cache/glm-status-cache.json'}`);
   process.exit(0);
 }
 
